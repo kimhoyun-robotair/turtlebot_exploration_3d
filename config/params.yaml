@@ -1,0 +1,27 @@
+cloud_integrator:
+  ros__parameters:
+    map_frame: map
+    cloud_topic: /mast_camera/points
+    octo_reso: 0.05
+    max_range: 6.0
+    r_min: 0.3
+    r_max: 6.0
+    z_min: -1.0
+    z_max: 2.0
+
+frontier_viewpoint:
+  ros__parameters:
+    map_frame: map
+    # D455 depth FOV 대략치 (필요시 CameraInfo 기반으로 교체)
+    width: 320
+    height: 240
+    h_fov_deg: 87.0
+    v_fov_deg: 58.0
+
+    yaw_samples: 30
+    ring_r_min: 1.0
+    ring_r_max: 5.0
+    ring_r_step: 0.5
+    keep_top_k: 15
+
+    nav_timeout_sec: 180.0
