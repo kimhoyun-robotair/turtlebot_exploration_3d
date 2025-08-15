@@ -1,0 +1,58 @@
+turtlebot_exploration_3d:
+  ros__parameters:
+    # (1) Frames & Topics
+    map_frame: "map"                        # TF 기준 프레임
+    camera_frame: "mast_rgbd_link"          # 카메라(센서) 프레임
+    cloud_topic: "/mast_camera/points"      # RGB-D 포인트클라우드
+    cmd_vel_topic: "/cmd_vel"               # 속도 명령 토픽
+    goal_marker_topic: "/Goal_Marker"       # RViz 골 마커
+    candidates_topic: "/Candidate_MIs"      # 후보 VP 마커
+    frontiers_topic: "/Frontier_points"     # 프런티어 마커
+    octomap_topic: "octomap_3d"             # 옥토맵 토픽
+
+    # (2) Sensor model (레이 테이블)
+    sensor_width: 128                       # 레이 샘플 가로 (px)
+    sensor_height: 48                       # 레이 샘플 세로 (px)
+    h_fov_deg: 57.0                         # 수평 FOV (deg)
+    v_fov_deg: 43.0                         # 수직 FOV (deg)
+    max_range: 8.0                          # 레이 캐스팅 최대 사거리 (m)
+
+    # (3) Pre-processing filters
+    voxel_leaf: 0.07                        # VoxelGrid 리프 (m), 0 비활성
+    z_clip_min: -1.0                        # z 하한 (m, map 기준)
+    z_clip_max:  5.0                        # z 상한 (m)
+    r_min: 0.3                              # 센서 원점과의 최소 거리 (m)
+    r_max: 6.0                              # 센서 원점과의 최대 거리 (m)
+
+    # (5) Frontier slice
+    slice_z: 0.4                            # 프런티어 탐색 z 슬라이스 시작 (m)
+    slice_thickness: 0.05                   # 슬라이스 두께 (대개 octo_reso)
+    cluster_radius_R1: 0.4                  # 프런티어 클러스터링 반경 (m)
+
+    # (6) Candidate VP ring
+    yaw_samples: 30                         # 후보 yaw 샘플 개수
+    ring_r_min: 1.0                         # 프런티어 중심에서 시작 반경 (m)
+    ring_r_max: 5.0                         # 프런티어 중심에서 최대 반경 (m)
+    ring_r_step: 0.5                        # 반경 증가 간격 (m)
+    min_dist_from_sensor: 0.25              # 현재 센서 원점과 최소 이격 (m)
+    clearance_R3: 0.3                       # 프런티어들과의 최소 이격 (m)
+
+    # (7) MI / BO (GP)
+    num_of_samples_eva: 15                  # 초기 후보 평가 개수
+    num_of_bay: 3                           # 베이지안 최적화 반복
+    gp_sf2: 100.0                           # GP prior variance
+    gp_ell: 3.0                             # GP lengthscale (사용 안하면 무시)
+    gp_noise: 0.01                          # GP 관측 노이즈
+    bo_beta: 2.4                            # 획득함수 가중
+    normalize_mi_by_distance: true          # 거리로 MI 정규화 여부
+
+    # (8) Navigation / initial scan
+    initial_rotate_scans: 3                 # 시작 시 회전 스캔 횟수
+    rotate_speed: 0.3                       # 회전 속도(rad/s)
+    rotate_duration_sec: 1.0                # 각 스캔 회전 시간(s)
+    nav_timeout_sec: 120.0                  # Nav2 타임아웃(선택: utils에서 사용)
+    nav_action_name: "navigate_to_pose"     # Nav2 액션 서버 이름(선택)
+
+    # (9) Logging / File output
+    write_octomap_to_disk: false            # 옥토맵 파일 저장 on/off
+    octomap_filename_prefix: "Octomap3D_"   # 저장 파일 접두어

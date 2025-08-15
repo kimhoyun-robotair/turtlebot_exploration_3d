@@ -62,8 +62,8 @@ install(TARGETS turtlebot_exploration_3d_node
 )
 
 install(DIRECTORY include/ DESTINATION include)
-# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-# install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

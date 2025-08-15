@@ -1,5 +1,5 @@
-#ifndef JACKALEXPLORATION_EXPLORATION_HPP_
-#define JACKALEXPLORATION_EXPLORATION_HPP_
+#ifndef DARAMGEXPLORATION_EXPLORATION_HPP_
+#define DARAMGEXPLORATION_EXPLORATION_HPP_
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -24,25 +24,48 @@
 #include <vector>
 #include <fstream>
 
-namespace jackal_exploration {
+namespace daramg_exploration {
 
-using point3d   = octomap::point3d;
+// 편의상 사용하기 위한 상수들과 alias들
+using point3d = octomap::point3d;
 using PointType = pcl::PointXYZ;
 using PointCloud= pcl::PointCloud<pcl::PointXYZ>;
 
-constexpr double PI        = 3.1415926;
+constexpr double PI = 3.1415926;
 constexpr double octo_reso = 0.05;
-constexpr int    num_of_samples_eva = 15;
-constexpr int    num_of_bay = 3;
+constexpr int num_of_samples_eva = 15;
+constexpr int num_of_bay = 3;
 
-// ===== 글로벌 상태 (원본 유지) =====
+// 데이터를 사용하기 위한 각종 글로벌 state 변수들
 extern std::unique_ptr<octomap::OcTree> cur_tree;
-extern std::string         octomap_name_3d;
-extern point3d             kinect_orig;
+extern std::string octomap_name_3d;
+extern point3d kinect_orig;
 extern std::shared_ptr<tf2_ros::Buffer> g_tf_buffer;
-extern rclcpp::Logger      g_logger;
+extern rclcpp::Logger g_logger;
 
-// 원본 sort
+// 런타임 파라미터를 위해서 추가
+inline double g_slice_z = 0.4;
+inline double g_slice_thickness = octo_reso;
+inline double g_cluster_R1 = 0.4;
+
+inline double g_ring_r_min = 1.0;
+inline double g_ring_r_max = 5.0;
+inline double g_ring_r_step = 0.5;
+inline double g_min_dist_sensor = 0.25;
+inline double g_clearance_R3 = 0.3;
+
+// 전처리 필터(ROS2 kinectCallbacks에서 사용)
+inline double g_voxel_leaf = 0.05;
+inline double g_z_clip_min = -1.0;
+inline double g_z_clip_max =  5.0;
+inline double g_r_min =  0.3;
+inline double g_r_max =  6.0;
+
+// 디스크 저장 토글
+inline bool   g_write_octomap = false;
+inline std::string g_octomap_prefix = "Octomap3D_";
+
+// 정보이득(MI) 정렬
 inline std::vector<int> sort_MIs(const std::vector<double> &v){
   std::vector<int> idx(v.size());
   std::iota(idx.begin(), idx.end(),0);
@@ -51,7 +74,7 @@ inline std::vector<int> sort_MIs(const std::vector<double> &v){
   return idx;
 }
 
-// 원본 sensor model
+// 센서를 모사하기 위한 모델
 struct sensorModel {
   double width;
   double height;
@@ -80,10 +103,28 @@ struct sensorModel {
   }
 };
 
-// Kinect 모델 (원본과 동일)
+// Kinect RGB-D 카메라 모델
 static sensorModel Kinect_360(128, 96, 2*PI*57/360, 2*PI*43/360, 6.0);
 
-// ===== 원본 함수 =====
+// 센서 모델에 대한 런타임 재설정
+inline void set_sensor_model(int width, int height, double h_fov_deg, double v_fov_deg, double max_range) {
+  Kinect_360.width = width;
+  Kinect_360.height = height;
+  Kinect_360.horizontal_fov = h_fov_deg * PI / 180.0;
+  Kinect_360.vertical_fov   = v_fov_deg * PI / 180.0;
+  Kinect_360.max_range = max_range;
+  Kinect_360.angle_inc_hor = Kinect_360.horizontal_fov / Kinect_360.width;
+  Kinect_360.angle_inc_vel = Kinect_360.vertical_fov   / Kinect_360.height;
+  Kinect_360.SensorRays.clear();
+  for(double j = -Kinect_360.height / 2; j < Kinect_360.height / 2; ++j)
+    for(double i = -Kinect_360.width  / 2; i < Kinect_360.width  / 2; ++i) {
+      Kinect_360.InitialVector = point3d(1.0, 0.0, 0.0);
+      Kinect_360.InitialVector.rotate_IP(0.0, j * Kinect_360.angle_inc_vel, i * Kinect_360.angle_inc_hor);
+      Kinect_360.SensorRays.push_back(Kinect_360.InitialVector);
+    }
+}
+
+// Octomap에서 Free cell 세기
 inline double countFreeVolume(const std::unique_ptr<octomap::OcTree> &octree) {
   double volume = 0.0;
   for (auto it = octree->begin_leafs(octree->getTreeDepth());
@@ -93,6 +134,7 @@ inline double countFreeVolume(const std::unique_ptr<octomap::OcTree> &octree) {
   return volume;
 }
 
+// 가상의 센서 빔 모사
 inline octomap::Pointcloud castSensorRays(const std::unique_ptr<octomap::OcTree> &octree,
                                           const point3d &position,
                                           const point3d &sensor_orientation)
@@ -114,13 +156,13 @@ inline octomap::Pointcloud castSensorRays(const std::unique_ptr<octomap::OcTree>
   return hits;
 }
 
-// 2D 프런티어 (z=0.4±reso 한 장)
+// 2D 프런티어 (z=0.4±reso 한 장) -> 계산량 감소시키기
 inline std::vector<std::vector<point3d>>
 extractFrontierPoints(const std::unique_ptr<octomap::OcTree> &octree) {
   std::vector<std::vector<point3d>> frontier_groups;
   std::vector<point3d> frontier_points;
 
-  double R1 = 0.4;
+  double R1 = g_cluster_R1;
   octomap::OcTreeNode *n_cur_frontier = nullptr;
   for (auto n = octree->begin_leafs(octree->getTreeDepth());
        n != octree->end_leafs(); ++n)
@@ -128,8 +170,8 @@ extractFrontierPoints(const std::unique_ptr<octomap::OcTree> &octree) {
     bool frontier_true = false;
     if (!octree->isNodeOccupied(*n)) {
       double x_cur = n.getX(), y_cur = n.getY(), z_cur = n.getZ();
-      if (z_cur < 0.4) continue;
-      if (z_cur > 0.4 + octo_reso) continue;
+      if (z_cur < g_slice_z) continue;
+      if (z_cur > g_slice_z + g_slice_thickness) continue;
 
       for (double xb = x_cur - octo_reso; xb < x_cur + octo_reso; xb += octo_reso)
         for (double yb = y_cur - octo_reso; yb < y_cur + octo_reso; yb += octo_reso)
@@ -164,18 +206,18 @@ extractFrontierPoints(const std::unique_ptr<octomap::OcTree> &octree) {
   return frontier_groups;
 }
 
-// 후보 뷰포인트 (원본과 동일)
+// 최적 탐색 지점의 후보지 도출
 inline std::vector<std::pair<point3d, point3d>>
 extractCandidateViewPoints(const std::vector<std::vector<point3d>> &frontier_groups,
                            const point3d &sensor_orig, int n)
 {
-  double R2_min = 1.0, R2_max = 5.0, R3 = 0.3;
+  double R2_min = g_ring_r_min, R2_max = g_ring_r_max, R3 = g_clearance_R3;
   std::vector<std::pair<point3d, point3d>> candidates;
   double z = sensor_orig.z();
 
   for (size_t u=0; u<frontier_groups.size(); ++u) {
     for (double yaw=0; yaw<2*PI; yaw += PI*2/n)
-      for (double R2=R2_min; R2<=R2_max; R2+=0.5)
+      for (double R2=R2_min; R2<=R2_max; R2+=g_ring_r_step)
       {
         double x = frontier_groups[u][0].x() - R2 * std::cos(yaw);
         double y = frontier_groups[u][0].y() - R2 * std::sin(yaw);
@@ -184,7 +226,7 @@ extractCandidateViewPoints(const std::vector<std::vector<point3d>> &frontier_gro
         auto n_cur_3d = cur_tree->search(point3d(x,y,z));
         if (!n_cur_3d) { candidate_valid = false; continue; }
 
-        if (std::hypot(x - sensor_orig.x(), y - sensor_orig.y()) < 0.25) {
+        if (std::hypot(x - sensor_orig.x(), y - sensor_orig.y()) < g_min_dist_sensor) {
           candidate_valid = false; continue;
         } else {
           for (size_t a=0; a<frontier_groups.size(); ++a)
@@ -211,7 +253,7 @@ extractCandidateViewPoints(const std::vector<std::vector<point3d>> &frontier_gro
   return candidates;
 }
 
-// MI (원본: 복사+가상삽입 → 자유체적 차)
+// 정보이득 계산
 inline double calc_MI(const std::unique_ptr<octomap::OcTree> &octree,
                       const point3d &sensor_orig,
                       const octomap::Pointcloud &hits,
@@ -223,7 +265,7 @@ inline double calc_MI(const std::unique_ptr<octomap::OcTree> &octree,
   return after - before;
 }
 
-// ROS2 콜백 (원본과 동일 로직)
+// point cloud 데이터 받기
 inline void kinectCallbacks(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   if (!g_tf_buffer) return;
@@ -258,7 +300,7 @@ inline void kinectCallbacks(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   cur_tree->insertPointCloud(hits, kinect_orig, Kinect_360.max_range);
 
   // 디스크 기록(원본 유지)
-  cur_tree->write(octomap_name_3d);
+  if (g_write_octomap) cur_tree->write(octomap_name_3d);
 
   RCLCPP_INFO(g_logger, "Entropy(3d map): %.3f", countFreeVolume(cur_tree));
 }

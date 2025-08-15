@@ -39,7 +39,6 @@ bool goToDest(point3d go_posi, const tf2::Quaternion& q,
   RCLCPP_INFO(logger, "Sending robot to the viewpoint... (%.2f, %.2f, %.2f)",
               go_posi.x(), go_posi.y(), go_posi.z());
 
-  // ✅ 올바른 SendGoalOptions 타입
   ClientT::SendGoalOptions opts;  // 콜백 지정 안 함 (동기 대기만 할 거라서)
   auto goal_handle_future = client->async_send_goal(goal, opts);
 
@@ -80,7 +79,6 @@ bool goToDest(point3d go_posi, const tf2::Quaternion& q,
       return false;
   }
 
-  // 🔒 안전망 (이 줄에 도달하지 않지만, 컴파일러 경고 방지용)
   return false;
 }
 

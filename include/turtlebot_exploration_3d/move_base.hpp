@@ -1,5 +1,4 @@
 #pragma once
-// ROS2 포팅: 원본 MoveBase 클래스와 동일 API (토픽만 ROS2 네임스페이스)
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose.hpp>
