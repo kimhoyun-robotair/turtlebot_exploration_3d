@@ -29,6 +29,7 @@ find_package(octomap REQUIRED)
 find_package(octomap_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 find_package(pcl_conversions REQUIRED)
+find_package(OpenMP)
 
 include_directories(
   include
@@ -36,36 +37,33 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
 )
 
-add_library(exploration_components SHARED
-  src/cloud_integrator.cpp
-  src/frontier_viewpoint.cpp
+add_executable(turtlebot_exploration_3d_node
+  src/turtlebot_exploration_3d_node.cpp
+  src/gpregressor.cpp
+  src/covMaterniso3.cpp
+  src/navigation_utils.cpp
 )
-
-target_link_libraries(exploration_components
-  ${PCL_LIBRARIES} octomap
+target_include_directories(turtlebot_exploration_3d_node PUBLIC ${PCL_INCLUDE_DIRS})
+target_link_libraries(turtlebot_exploration_3d_node
+  ${PCL_LIBRARIES}
+  octomap
 )
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(turtlebot_exploration_3d_node OpenMP::OpenMP_CXX)
+endif()
 
-ament_target_dependencies(exploration_components
+ament_target_dependencies(turtlebot_exploration_3d_node
   rclcpp rclcpp_components rclcpp_action std_msgs sensor_msgs geometry_msgs
   visualization_msgs nav2_msgs tf2 tf2_ros tf2_geometry_msgs tf2_eigen
   octomap_msgs pcl_conversions
 )
-
-rclcpp_components_register_nodes(exploration_components
-  "explore::CloudIntegratorNode"
-  "explore::FrontierViewpointNode"
+install(TARGETS turtlebot_exploration_3d_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
-
-install(TARGETS exploration_components
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
 
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
