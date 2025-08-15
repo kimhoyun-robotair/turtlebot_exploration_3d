@@ -30,6 +30,7 @@ find_package(octomap_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 find_package(pcl_conversions REQUIRED)
 find_package(OpenMP)
+find_package(rclcpp_lifecycle REQUIRED)
 
 include_directories(
   include
@@ -58,6 +59,30 @@ ament_target_dependencies(turtlebot_exploration_3d_node
   octomap_msgs pcl_conversions
 )
 install(TARGETS turtlebot_exploration_3d_node
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+add_executable(turtlebot_exploration_3d_node_lifecycle
+  src/turtlebot_exploration_3d_node_lifecycle.cpp
+  src/gpregressor.cpp
+  src/covMaterniso3.cpp
+  src/navigation_utils.cpp
+)
+target_include_directories(turtlebot_exploration_3d_node_lifecycle PUBLIC ${PCL_INCLUDE_DIRS})
+target_link_libraries(turtlebot_exploration_3d_node_lifecycle
+  ${PCL_LIBRARIES}
+  octomap
+)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(turtlebot_exploration_3d_node_lifecycle OpenMP::OpenMP_CXX)
+endif()
+
+ament_target_dependencies(turtlebot_exploration_3d_node_lifecycle
+  rclcpp rclcpp_components rclcpp_action std_msgs sensor_msgs geometry_msgs
+  visualization_msgs nav2_msgs tf2 tf2_ros tf2_geometry_msgs tf2_eigen
+  octomap_msgs pcl_conversions rclcpp_lifecycle
+)
+install(TARGETS turtlebot_exploration_3d_node_lifecycle
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

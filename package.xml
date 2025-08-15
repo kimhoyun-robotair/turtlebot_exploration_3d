@@ -15,6 +15,7 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_component</depend>
   <depend>rclcpp_action</depend>
+  <depend>rclcpp_lifecycle</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>geomery_msgs</depend>
