@@ -48,7 +48,7 @@ turtlebot_exploration_3d:
 
     # (8) Navigation / initial scan
     initial_rotate_scans: 3                 # 시작 시 회전 스캔 횟수
-    rotate_speed: 0.3                       # 회전 속도(rad/s)
+    rotate_speed: 0.2                       # 회전 속도(rad/s)
     rotate_duration_sec: 1.0                # 각 스캔 회전 시간(s)
     nav_timeout_sec: 120.0                  # Nav2 타임아웃(선택: utils에서 사용)
     nav_action_name: "navigate_to_pose"     # Nav2 액션 서버 이름(선택)
