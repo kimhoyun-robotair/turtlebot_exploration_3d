@@ -89,7 +89,7 @@ public:
     normalize_mi_by_dist_ = this->declare_parameter<bool>("normalize_mi_by_distance", true);
 
     // 초기 스캔을 위한 파라미터
-    initial_scans_ = this->declare_parameter<int>("initial_rotate_scans", 3);
+    initial_scans_ = this->declare_parameter<int>("initial_rotate_scans", 6);
     rotate_speed_ = this->declare_parameter<double>("rotate_speed", 0.3);
     rotate_dur_sec_ = this->declare_parameter<double>("rotate_duration_sec", 1.0);
     nav_timeout_sec_ = this->declare_parameter<double>("nav_timeout_sec", 40.0);
